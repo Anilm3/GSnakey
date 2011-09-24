@@ -1,5 +1,5 @@
 /********************************************************************************
-* GSnakey v0.2 - GSnakey.c                                                      *
+* GSnakey v0.3 - GSnakey.c                                                      *
 *                                                                               *
 * Copyright (C) 2010 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)       *
 *                                                                               *
