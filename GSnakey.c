@@ -1,5 +1,5 @@
 /********************************************************************************
-* GSnakey v0.1 - GSnakey.c                                                      *
+* GSnakey v0.2 - GSnakey.c                                                      *
 *                                                                               *
 * Copyright (C) 2010 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)       *
 *                                                                               *
@@ -21,6 +21,15 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <gdk/gdkkeysyms.h>
+
+#define ROW		24
+#define COL		51
+
+#define HEIGHT	ROW*12
+#define WIDTH	COL*12
+
+#define IN_ROW	12
+#define IN_COL	25
 
 #define invalid(x) ((x) == SR || \
 					(x) == SL || \
@@ -45,48 +54,46 @@ enum object_t {
 	ST    = 'T'
 };
 
-enum dir_t {STOP, RIGHT, LEFT, UP, DOWN, NONE};
+enum dir_t {STOP, RIGHT, LEFT, UP, DOWN};
 
-int row = 0;
-int col = 0;
-int fr, fc, sr, sc;
+int sr = IN_ROW;
+int sc = IN_COL;
 int remain = 0;
-int tlapse = 500;
+
+int tlapse = 400;
 int step = 10;
-char *grid;
+
+char grid[ROW*COL];
 
 int ibuf = 0;
 int nbuf = 0;
 
-enum dir_t dirbuf[32];
-enum dir_t direction = STOP;
+int dirbuf[32];
+
+int points = 0;
+int keysig;
+
+GtkWidget *window, *statusbar;
 
 static void destroy (GtkWidget *window, gpointer data)
 {
-	if(grid != NULL){
-		free(grid);
-	}
-	
 	gtk_main_quit ();
 }
 
 void draw_grid (GtkWidget *widget)
 {
 	cairo_t *cr;
-	int i, j, width, height;
+	int i, j;
 
 	cr = gdk_cairo_create (widget->window);
 	
-	width = widget->allocation.width;
-	height = widget->allocation.height;
-	
 	cairo_set_source_rgb(cr, 1, 1, 1);
-	cairo_rectangle(cr, 0, 0, width, height);
+	cairo_rectangle(cr, 0, 0, WIDTH, HEIGHT);
 	cairo_fill(cr);
 
-	for (i = 0; i < row; i++) {
-		for (j = 0; j < col; j++) {
-			switch (grid[col*i + j]) {
+	for (i = 0; i < ROW; i++) {
+		for (j = 0; j < COL; j++) {
+			switch (grid[COL*i + j]) {
 			case WALL:
 				cairo_set_source_rgb(cr, 1, 0, 0);
 				break;
@@ -131,7 +138,7 @@ key_press (GtkWidget *widget,
 					break;
 				}
 			}else {
-				if (grid[sr*col + sc] == SL) {
+				if (grid[sr*COL + sc] == SL) {
 					break;
 				}
 			}
@@ -150,7 +157,7 @@ key_press (GtkWidget *widget,
 					break;
 				}
 			} else {
-				if (grid[sr*col + sc] == SU) {
+				if (grid[sr*COL + sc] == SU) {
 					break;
 				}
 			}
@@ -169,7 +176,7 @@ key_press (GtkWidget *widget,
 					break;
 				}
 			} else {
-				if (grid[sr*col + sc] == SR) {
+				if (grid[sr*COL + sc] == SR) {
 					break;
 				}
 			}
@@ -188,7 +195,7 @@ key_press (GtkWidget *widget,
 					break;
 				}
 			} else {
-				if (grid[sr*col + sc] == SD) {
+				if (grid[sr*COL + sc] == SD) {
 					break;
 				}
 			}
@@ -214,41 +221,41 @@ void new_food()
 	int ar, ac;
 	
 	do {
-		ar = rand()%row;
-		ac = rand()%col;
-	} while(grid[ar*col + ac] != SPACE);
+		ar = rand()%ROW;
+		ac = rand()%COL;
+	} while(grid[ar*COL + ac] != SPACE);
 	
-	grid[ar*col + ac] = FOOD;
+	grid[ar*COL + ac] = FOOD;
 }
 
 int update_snake(int ar, int ac)
 {
 	int n;
-	switch(grid[ar*col + ac]) {
+	switch(grid[ar*COL + ac]) {
 	case SU:
-		n = update_snake((ar + row - 1)%row, ac);
+		n = update_snake((ar + ROW - 1)%ROW, ac);
 		break;
 	case SD:
-		n = update_snake((ar + 1)%row, ac);
+		n = update_snake((ar + 1)%ROW, ac);
 		break;
 	case SR:
-		n = update_snake(ar, (ac + 1)%col);
+		n = update_snake(ar, (ac + 1)%COL);
 		break;
 	case SL:
-		n = update_snake(ar, (ac + col - 1)%col);
+		n = update_snake(ar, (ac + COL - 1)%COL);
 		break;
 	case ST:
 		if (remain > 0) {
 			remain--;
 		} else {
-			grid[ar*col + ac] = SPACE;
+			grid[ar*COL + ac] = SPACE;
 			return 1;
 		}
 		break;
 	}
 	
 	if (n == 1) {
-		grid[ar*col + ac] = ST;
+		grid[ar*COL + ac] = ST;
 	}
 	
 	return 0;
@@ -265,99 +272,140 @@ advance (GtkWidget *widget)
 	
 	switch (dirbuf[ibuf]) {
 	case UP:
-		if (grid[sr*col + sc] == SU) {
+		if (grid[sr*COL + sc] == SU) {
 			break;
 		}
 		
-		srow = (sr + row - 1) % row;
-		if (invalid(grid[srow*col + sc])) {
+		srow = (sr + ROW - 1) % ROW;
+		if (invalid(grid[srow*COL + sc])) {
+			int id;
 			dirbuf[ibuf] = STOP;
-			printf("END\n");
-			exit(EXIT_SUCCESS);
+			id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+			char string[30];
+			sprintf(string, "Game Over : %d Points", points);
+			gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+			gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, string);
+			g_signal_handler_disconnect(window, keysig);
 		} else {
 			sr = srow;
 			
-			if (grid[sr*col + sc] == FOOD) {
-				tlapse = ((tlapse-step) < 50 ? 50 : tlapse-step);
-				step = step + 5;
+			if (grid[sr*COL + sc] == FOOD) {
+				int id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+				char string[20];
+				points += 10;
+				sprintf(string, "%d Points", points);
+				gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+				gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, string);
+				tlapse = ((tlapse-step) < 10 ? 10 : tlapse-step);
 				remain = 2;
 				new_food();
 			}
 			
-			grid[sr*col + sc] = SD;
+			grid[sr*COL + sc] = SD;
 			update_snake(sr, sc);
 		}
 		
 		break;
 	case DOWN:
-		if (grid[sr*col + sc] == SD) {
+		if (grid[sr*COL + sc] == SD) {
 			break;
 		}
 		
-		srow = (sr + row + 1) % row;
-		if (invalid(grid[srow*col + sc])) {
+		srow = (sr + ROW + 1) % ROW;
+		if (invalid(grid[srow*COL + sc])) {
+			int id;
 			dirbuf[ibuf] = STOP;
-			printf("END\n");
-			exit(EXIT_SUCCESS);
+			id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+			char string[30];
+			sprintf(string, "Game Over : %d Points", points);
+			gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+			gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, string);
+			g_signal_handler_disconnect(window, keysig);
 		} else {
 			sr = srow;
 			
-			if (grid[sr*col + sc] == FOOD) {
-				tlapse = ((tlapse-step) < 50 ? 50 : tlapse-step);
-				step = step + 5;
+			if (grid[sr*COL + sc] == FOOD) {
+				int id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+				char string[20];
+				points += 10;
+				sprintf(string, "%d Points", points);
+				gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+				gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, string);
+				tlapse = ((tlapse-step) < 10 ? 10 : tlapse-step);
 				remain = 2;
 				new_food();
 			}
 			
-			grid[sr*col + sc] = SU;
+			grid[sr*COL + sc] = SU;
 			update_snake(sr, sc);
 		}
 		break;
 	case RIGHT:
-		if (grid[sr*col + sc] == SR) {
+		if (grid[sr*COL + sc] == SR) {
 			break;
 		}
 		
-		scol = (sc + col + 1) % col;
-		if (invalid(grid[sr*col + scol])) {
+		scol = (sc + COL + 1) % COL;
+		if (invalid(grid[sr*COL + scol])) {
+			int id;
 			dirbuf[ibuf] = STOP;
-			printf("END\n");
-			exit(EXIT_SUCCESS);
+			id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+			char string[30];
+			sprintf(string, "Game Over : %d Points", points);
+			gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+			gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, string);
+			g_signal_handler_disconnect(window, keysig);
 		} else {
 			sc = scol;
 			
-			if (grid[sr*col + sc] == FOOD) {
-				tlapse = ((tlapse-step) < 50 ? 50 : tlapse-step);
-				step = step + 5;
+			if (grid[sr*COL + sc] == FOOD) {
+				int id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+				char string[20];
+				points += 10;
+				sprintf(string, "%d Points", points);
+				gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+				gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, string);
+				tlapse = ((tlapse-step) < 10 ? 10 : tlapse-step);
 				remain = 2;
 				new_food();
 			}
 			
-			grid[sr*col + sc] = SL;
+			grid[sr*COL + sc] = SL;
 			update_snake(sr, sc);
 		}
 		break;
 	case LEFT:
-		if (grid[sr*col + sc] == SL) {
+		if (grid[sr*COL + sc] == SL) {
 			break;
 		}
 		
-		scol = (sc + col - 1) % col;
-		if (invalid(grid[sr*col + scol])) {
+		scol = (sc + COL - 1) % COL;
+		if (invalid(grid[sr*COL + scol])) {
+			int id;
 			dirbuf[ibuf] = STOP;
-			printf("END\n");
-			exit(EXIT_SUCCESS);
+			id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+			char string[30];
+			sprintf(string, "Game Over : %d Points", points);
+			gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+			gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, string);
+			g_signal_handler_disconnect(window, keysig);
+			return FALSE;
 		} else {
 			sc = scol;
 			
-			if (grid[sr*col + sc] == FOOD) {
-				tlapse = ((tlapse-step) < 50 ? 50 : tlapse-step);
-				step = step + 5;
+			if (grid[sr*COL + sc] == FOOD) {
+				int id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+				char string[20];
+				points += 10;
+				sprintf(string, "%d Points", points);
+				gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+				gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, string);
+				tlapse = ((tlapse-step) < 10 ? 10 : tlapse-step);
 				remain = 2;
 				new_food();
 			}
 			
-			grid[sr*col + sc] = SR;
+			grid[sr*COL + sc] = SR;
 			update_snake(sr, sc);
 		}
 		break;
@@ -369,106 +417,89 @@ advance (GtkWidget *widget)
 
 	gtk_widget_queue_draw(widget);
 	g_timeout_add(tlapse, (GSourceFunc) advance, widget);
+	
 	return FALSE;
+}
+
+int load_map(const char *name)
+{
+	char c;
+	int fd, n, i;
+	
+	fd = open(name, O_RDONLY);
+	
+	if (fd == -1) {
+		printf("Error: No map\n");
+		return -1;
+	}
+	
+	for (i = 0; i < ROW; i++) {
+		n = read(fd, &grid[i*COL], COL*sizeof(char));
+		
+		if (n != COL*sizeof(char)) {
+			close(fd);
+			printf("Error: Invalid map\n");
+			return -1;
+		}
+		
+		n = read(fd, &c, sizeof(char));
+		
+		if (n != sizeof(char)) {
+			close(fd);
+			printf("Error: Invalid map\n");
+			return -1;
+		}
+	}
+	
+	close(fd);
+	
+	return 0;
 }
 
 int main (int argc, char *argv[])
 {
-	FILE *fd;
-	int n, i, j;
-	int width, height;
-	int count = 0;
-	GtkWidget *window;
-	GtkWidget *darea;
+	int id;
+	GtkWidget *darea, *vbox;
 	
 	srand(time(0));
 	
-	fd = fopen("map1", "r");
+	memset(&grid, SPACE, sizeof(grid)/sizeof(char));
+	memset(&dirbuf, STOP, sizeof(dirbuf)/sizeof(int));
 	
-	if (fd == NULL) {
-		printf("Error: No map\n");
+	if (load_map("map1") == -1) {
 		exit(EXIT_SUCCESS);
 	}
 	
-	n = fscanf(fd, "%d %d\n", &row, &col);
-	
-	if (n != 2 ||
-		row < 10 || row > 100 ||
-		col < 10 || col > 100) 
-	{
-		fclose(fd);
-		printf("Error: Invalid map 1\n");
-		exit(EXIT_SUCCESS);
-	}
-	
-	grid = (char *) malloc(sizeof(char)*row*col);
-	
-	if (grid == NULL) {
-		free(grid);
-		fclose(fd);
-		printf("Error: Memory error 2\n");
-		exit(EXIT_SUCCESS);
-	}
-	
-	n = fscanf(fd, "%d %d\n", &sr, &sc);
-
-	if (n != 2){
-		free(grid);
-		fclose(fd);
-		printf("Error: Invalid map 3\n");
-		exit(EXIT_SUCCESS);
-	}
-	
-	printf("%d %d\n", sr, sc);
-	
-	for (i = 0; i < row; i++) {
-		for (j = 0; j < col; j++) {
-			n = fscanf(fd, "%c", &grid[i*col+j]);
-			
-			if (n != 1) {
-				free(grid);
-				fclose(fd);
-				printf("Error: Invalid map 4\n");
-				exit(EXIT_SUCCESS);
-			}
-		}
-		
-		n = fscanf(fd, "\n");
-		if (n != 0) {
-			free(grid);
-			fclose(fd);
-			printf("Error: Invalid map 5\n");
-			exit(EXIT_SUCCESS);
-		}
-	}
-
 	new_food();
 	
-	fclose(fd);
-	
-	width = col*12;
-	height = row*12;
-	
-	memset(&dirbuf, NONE, sizeof(dirbuf)/sizeof(enum dir_t));
 	gtk_init(&argc, &argv);
 
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
-	gtk_window_set_default_size(GTK_WINDOW(window), width, height); 
+/*	gtk_window_set_default_size(GTK_WINDOW(window), WIDTH, HEIGHT); */
 	gtk_window_set_resizable(GTK_WINDOW (window), FALSE);
-	
-	darea = gtk_drawing_area_new();
-	gtk_drawing_area_size(GTK_DRAWING_AREA(darea), width, height);
 
-	gtk_container_add(GTK_CONTAINER (window), darea);
+	darea = gtk_drawing_area_new();
+	gtk_drawing_area_size(GTK_DRAWING_AREA(darea), WIDTH, HEIGHT);
+
+	statusbar = gtk_statusbar_new ();
+
+	vbox = gtk_vbox_new (FALSE, 0);
+	gtk_box_pack_start_defaults (GTK_BOX (vbox), darea);
+	gtk_box_pack_start_defaults (GTK_BOX (vbox), statusbar);
+	
+	gtk_container_add(GTK_CONTAINER (window), vbox);
 	
 	g_signal_connect(darea, "expose-event",
 					 G_CALLBACK(on_expose_event), darea);
-	g_signal_connect(window, "key_press_event",
+	keysig = g_signal_connect(window, "key_press_event",
 					 G_CALLBACK(key_press), NULL);
 	g_signal_connect(window, "destroy",
 					 G_CALLBACK(destroy), NULL);
-					 
+
+	id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Points");
+	gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, "0 Points");
+				
 	gtk_widget_show_all(window);
 	
 	g_timeout_add(tlapse, (GSourceFunc) advance, (gpointer) darea);
