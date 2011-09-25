@@ -1,5 +1,5 @@
 /********************************************************************************
-* GSnakey v0.6 - GSnakey.c                                                      *
+* GSnakey v0.7 - GSnakey.c                                                      *
 *                                                                               *
 * Copyright (C) 2011 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)       *
 *                                                                               *
@@ -23,7 +23,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <gdk/gdkkeysyms.h>
-#include "zlib.h"
 
 #define ROW     24
 #define COL     51
@@ -57,6 +56,39 @@
                     (x) == DOWN || \
                     (x) == TAIL)
 
+char *applogo = "................................"
+                "................................"
+                "................................"
+                "................................"
+                "................................"
+                "............***********........."
+                "...........*###########*........"
+                ".........*###############*......"
+                ".......*####**********####*....."
+                "......*####*..........**##*....."
+                ".....*####*.............**......"
+                ".....*####*....................."
+                ".....*####**...................."
+                "......*#####**.................."
+                ".......**#####****.............."
+                ".........*########***..........."
+                "..........****#######**........."
+                "..............***######**......."
+                "......**.........***#####*......"
+                ".....*##*...........**####*....."
+                ".....*###**...........*###*....."
+                ".....*#####*..........*####*...."
+                "......**####*.........*####*...."
+                "........*####********#####*....."
+                ".........**############***......"
+                "...........*##########*........."
+                "............**********.........."
+                "................................"
+                "................................"
+                "................................"
+                "................................"
+                "................................";
+                
 int sr = IN_ROW;
 int sc = IN_COL;
 int remain = 0;
@@ -133,8 +165,10 @@ GtkTreeModel *create_and_fill_model (void)
     dh = opendir("maps");
 
     while((file = readdir(dh))) {
-        if(strncmp(file->d_name, "map.", 4) == 0) {
-            count++;
+        if (strlen(file->d_name) == 7) {
+            if(strncmp(file->d_name, "map.", 4) == 0) {
+                count++;
+            }
         }
     }
 
@@ -233,6 +267,7 @@ static gboolean key_press (GtkWidget *widget,
                            GdkEventKey *event,
                            GtkWidget *data)
 {
+    int id;
     char move;
 
     switch(event->keyval) {
@@ -250,6 +285,15 @@ static gboolean key_press (GtkWidget *widget,
         break;
     case GDK_space:
         paused = !paused;
+        
+        if (ended != 1) {
+            id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Info");
+            gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+            
+            if (paused == 1) {
+                gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, "Paused");
+            }
+        }
         goto kp_exit;
     case GDK_Escape:
         init_game();
@@ -549,8 +593,7 @@ void show_about(GtkWidget *widget,
 
     const gchar *documenters[] = {"Anil Motilal Mahtani Mirchandani", NULL};
     
-    const char *lic = "GSnakey v0.5 - GSnakey.c\n\n"
-                      "Copyright (C) 2011 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)\n\n"
+    const char *lic = "Copyright (C) 2011 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)\n\n"
                       "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>"
                       "This is free software: you are free to change and redistribute it."
                       "There is NO WARRANTY, to the extent permitted by law.";
@@ -559,7 +602,7 @@ void show_about(GtkWidget *widget,
 
     /* Set application data that will be displayed in the main dialog. */
     gtk_about_dialog_set_name (GTK_ABOUT_DIALOG (dialog), "GSnakey");
-    gtk_about_dialog_set_version (GTK_ABOUT_DIALOG (dialog), "0.6");
+    gtk_about_dialog_set_version (GTK_ABOUT_DIALOG (dialog), "0.7");
     gtk_about_dialog_set_copyright (GTK_ABOUT_DIALOG (dialog), 
                                     "(C) 2011 Anil M. Mahtani Mirchandani");
     gtk_about_dialog_set_comments (GTK_ABOUT_DIALOG (dialog), 
@@ -598,7 +641,7 @@ void show_keys(GtkWidget *widget,
                                      "Right\t: Right Arrow\n"
                                      "Left\t\t: Left Arrow\n"
                                      "Pause\t: Space\n"
-                                     "Reset\t: Esc\n");
+                                     "Reset\t: Esc");
     gtk_dialog_run (GTK_DIALOG (dialog));
     gtk_widget_destroy (dialog);
 }
@@ -624,7 +667,9 @@ statusbar_hint (GtkMenuItem *menuitem,
 
 int main (int argc, char *argv[])
 {
-    int id;
+    int id, x, y;
+    int rowstride, n_channels;
+    guchar *pixels, *p;
     GtkAccelGroup *group;
     
     GtkWidget *hbox, *vbox, *vbox2, *table;
@@ -635,13 +680,37 @@ int main (int argc, char *argv[])
     GtkWidget *keys, *about, *import, *open, *quit;
     GtkWidget *filemenu, *helpmenu;
     GdkColor color;
-   
+    GdkPixbuf *icon;
+    
     gtk_init(&argc, &argv);
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	gtk_window_set_title (GTK_WINDOW (window), "GSnakey");
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_resizable(GTK_WINDOW (window), FALSE);
 
+    icon = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, 32, 32);
+
+    n_channels = gdk_pixbuf_get_n_channels (icon);
+    
+    for (x = 0; x < 32; x++) {
+        for (y = 0; y < 32; y++) {
+
+
+            rowstride = gdk_pixbuf_get_rowstride (icon);
+            pixels = gdk_pixbuf_get_pixels (icon);
+            p = pixels + y * rowstride + x * n_channels;
+            
+            p[0] = 255;
+            p[1] = 0;
+            p[2] = 0;
+            p[3] = (applogo[y*32 + x] != '.' ? 
+                    (applogo[y*32 + x] == '#' ? 255 : 127) : 0);
+        }
+    }
+    
+	gtk_window_set_icon (GTK_WINDOW(window), icon);
+	
     darea = gtk_drawing_area_new();
     gtk_drawing_area_size(GTK_DRAWING_AREA(darea), WIDTH, HEIGHT);
 
