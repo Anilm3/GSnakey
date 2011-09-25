@@ -1,7 +1,7 @@
 /********************************************************************************
-* GSnakey v0.5 - GSnakey.c                                                      *
+* GSnakey v0.6 - GSnakey.c                                                      *
 *                                                                               *
-* Copyright (C) 2010 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)       *
+* Copyright (C) 2011 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)       *
 *                                                                               *
 * License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html> *
 * This is free software: you are free to change and redistribute it.            *
@@ -79,7 +79,7 @@ int timesig = -1;
 int init = 0;
 
 char mapname[13] = "maps/map.000";
-GtkWidget *darea, *vbox, *table, *window, *statusbar, *pointsbar;
+GtkWidget *darea, *window, *pointsbar, *statusbar;
 
 void init_game();
 
@@ -141,16 +141,26 @@ GtkTreeModel *create_and_fill_model (void)
     closedir(dh);
     
     for (k = 0; k < count; k++) {
-        pic = gdk_pixbuf_new(GDK_COLORSPACE_RGB,FALSE,8,COL*2,ROW*2);
+        pic = gdk_pixbuf_new(GDK_COLORSPACE_RGB,FALSE,8,(COL + 1)*2,(ROW + 1)*2);
         sprintf(name, "maps/map.%03d", k);
         load_map(name, &pixgrid);
+        
+        for (i = 0; i < (ROW + 1)*2; i++) {
+            put_pixel(pic, 0, i, 0, 0, 0);
+            put_pixel(pic, COL*2 + 1, i, 0, 0, 0);
+        }
+        
+        for (i = 0; i < (COL + 1)*2; i++) {
+            put_pixel(pic, i, 0, 0, 0, 0);
+            put_pixel(pic, i, ROW*2 + 1, 0, 0, 0);
+        }
         
         for (i = 0; i < ROW; i++) {
             for (j = 0; j < COL; j++) {
                 if(pixgrid[i*COL+j] == WALL) {
-                    draw_square(pic, j*2, i*2, 255, 0, 0);
+                    draw_square(pic, j*2 + 1, i*2 + 1, 255, 0, 0);
                 } else {
-                    draw_square(pic, j*2, i*2, 255, 255, 255);
+                    draw_square(pic, j*2 + 1, i*2 + 1, 255, 255, 255);
                 }
             }
         }
@@ -161,35 +171,6 @@ GtkTreeModel *create_and_fill_model (void)
     return GTK_TREE_MODEL (list_store);
 }
 
-
-/*static void wopen (GtkWidget *window, gpointer data)*/
-/*{*/
-/*    GtkWidget *win;*/
-/*    GtkWidget *icon_view;*/
-/*    GtkWidget *scrolled_window;*/
-/*    */
-/*    win = gtk_window_new(GTK_WINDOW_TOPLEVEL);*/
-/*    gtk_window_set_position(GTK_WINDOW(win), GTK_WIN_POS_CENTER);*/
-/*    */
-/*    scrolled_window = gtk_scrolled_window_new (NULL, NULL);*/
-/*    gtk_container_add (GTK_CONTAINER (win), scrolled_window);*/
-/*    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),*/
-/*                                  GTK_POLICY_AUTOMATIC,*/
-/*                                  GTK_POLICY_AUTOMATIC);*/
-/*    gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled_window),*/
-/*                                       GTK_SHADOW_IN);*/
-
-/*    icon_view = gtk_icon_view_new_with_model (create_and_fill_model ());*/
-/*    gtk_container_add (GTK_CONTAINER (scrolled_window), icon_view);*/
-
-/*    gtk_icon_view_set_pixbuf_column (GTK_ICON_VIEW (icon_view), COL_PIXBUF);*/
-/*    gtk_icon_view_set_selection_mode (GTK_ICON_VIEW (icon_view),*/
-/*                                    GTK_SELECTION_MULTIPLE);*/
-
-/*    g_signal_connect(win, "destroy",*/
-/*                     G_CALLBACK(gtk_widget_destroy), NULL);*/
-/*    gtk_widget_show_all (win);*/
-/*}*/
 
 static void destroy (GtkWidget *window, gpointer data)
 {
@@ -557,16 +538,104 @@ void change_map(GtkIconView *iconview,
     }
 }
 
+void show_about(GtkWidget *widget, 
+                GtkWidget *whatever, 
+                gpointer user_data)
+{
+    GtkWidget *dialog;
+    GdkPixbuf *logo;
+
+    const gchar *authors[] = {"Anil Motilal Mahtani Mirchandani", NULL};
+
+    const gchar *documenters[] = {"Anil Motilal Mahtani Mirchandani", NULL};
+    
+    const char *lic = "GSnakey v0.5 - GSnakey.c\n\n"
+                      "Copyright (C) 2011 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)\n\n"
+                      "License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>"
+                      "This is free software: you are free to change and redistribute it."
+                      "There is NO WARRANTY, to the extent permitted by law.";
+                      
+    dialog = gtk_about_dialog_new ();
+
+    /* Set application data that will be displayed in the main dialog. */
+    gtk_about_dialog_set_name (GTK_ABOUT_DIALOG (dialog), "GSnakey");
+    gtk_about_dialog_set_version (GTK_ABOUT_DIALOG (dialog), "0.6");
+    gtk_about_dialog_set_copyright (GTK_ABOUT_DIALOG (dialog), 
+                                    "(C) 2011 Anil M. Mahtani Mirchandani");
+    gtk_about_dialog_set_comments (GTK_ABOUT_DIALOG (dialog), 
+                                   "Snake game based on Google Old Snakey!");
+
+    /* Set the license text, which is usually loaded from a file. Also, set the
+    * web site address and label. */
+    gtk_about_dialog_set_license (GTK_ABOUT_DIALOG (dialog), lic);
+    gtk_about_dialog_set_website (GTK_ABOUT_DIALOG (dialog), 
+                                  "https://github.com/Anilm3/GSnakey/");
+    gtk_about_dialog_set_website_label (GTK_ABOUT_DIALOG (dialog), 
+                                        "https://github.com/Anilm3/GSnakey/");
+
+    /* Set the application authors, documenters and translators. */
+    gtk_about_dialog_set_authors (GTK_ABOUT_DIALOG (dialog), authors);
+    gtk_about_dialog_set_documenters (GTK_ABOUT_DIALOG (dialog), documenters);
+  
+    gtk_about_dialog_set_wrap_license (GTK_ABOUT_DIALOG (dialog), TRUE);
+    
+    gtk_dialog_run (GTK_DIALOG (dialog));
+    gtk_widget_destroy (dialog);
+}
+
+
+void show_keys(GtkWidget *widget, 
+               GtkWidget *whatever, 
+               gpointer user_data)
+{
+    GtkWidget *dialog;
+    dialog = gtk_message_dialog_new (GTK_WINDOW(window),
+                                     GTK_DIALOG_DESTROY_WITH_PARENT,
+                                     GTK_MESSAGE_INFO,
+                                     GTK_BUTTONS_OK,
+                                     "Up\t\t: Up Arrow\n"
+                                     "Down\t: Down Arrow\n"
+                                     "Right\t: Right Arrow\n"
+                                     "Left\t\t: Left Arrow\n"
+                                     "Pause\t: Space\n"
+                                     "Reset\t: Esc\n");
+    gtk_dialog_run (GTK_DIALOG (dialog));
+    gtk_widget_destroy (dialog);
+}
+
+static gboolean 
+statusbar_hint (GtkMenuItem *menuitem, 
+                GdkEventProximity *event, 
+                gpointer *user_data)
+{
+  gchar *hint;
+  guint id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "MenuItemHints");
+
+  if (event->type == GDK_ENTER_NOTIFY)
+  {
+    hint = (gchar*) g_object_get_data (G_OBJECT (menuitem), "menuhint");
+    gtk_statusbar_push (GTK_STATUSBAR(statusbar), id, hint);
+  }
+  else if (event->type == GDK_LEAVE_NOTIFY)
+    gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
+  
+  return FALSE;
+}
 
 int main (int argc, char *argv[])
 {
     int id;
     GtkAccelGroup *group;
+    
+    GtkWidget *hbox, *vbox, *vbox2, *table;
+    GtkWidget *icon_view;
+    GtkWidget *scrolled_window;
     GtkWidget *menubar;
     GtkWidget *file, *help;
     GtkWidget *keys, *about, *import, *open, *quit;
     GtkWidget *filemenu, *helpmenu;
-      
+    GdkColor color;
+   
     gtk_init(&argc, &argv);
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -581,8 +650,9 @@ int main (int argc, char *argv[])
 
     group = gtk_accel_group_new ();
     menubar = gtk_menu_bar_new ();
-    file = gtk_menu_item_new_with_label ("File");
-    help = gtk_menu_item_new_with_label ("Help");
+    
+    file = gtk_menu_item_new_with_mnemonic ("_File");
+    help = gtk_menu_item_new_with_mnemonic ("_Help");
     filemenu = gtk_menu_new ();
     helpmenu = gtk_menu_new ();
 
@@ -592,54 +662,89 @@ int main (int argc, char *argv[])
     gtk_menu_shell_append (GTK_MENU_SHELL (menubar), file); 
     gtk_menu_shell_append (GTK_MENU_SHELL (menubar), help);
 
-    quit = gtk_image_menu_item_new_from_stock (GTK_STOCK_QUIT, group);
+    quit = gtk_image_menu_item_new_with_label("Quit");
     gtk_menu_shell_append (GTK_MENU_SHELL (filemenu), quit);
 
-    keys = gtk_image_menu_item_new_from_stock (GTK_STOCK_HELP, group);
-    about = gtk_image_menu_item_new_from_stock (GTK_STOCK_ABOUT, group);
+    keys = gtk_image_menu_item_new_with_label("Keys");
+    about = gtk_image_menu_item_new_with_label("About");
     gtk_menu_shell_append (GTK_MENU_SHELL (helpmenu), keys);
     gtk_menu_shell_append (GTK_MENU_SHELL (helpmenu), about);
     
-    GtkWidget *hbox;
-    GtkWidget *icon_view;
-    GtkWidget *scrolled_window;
+    gtk_image_menu_item_set_accel_group(GTK_IMAGE_MENU_ITEM(quit), group);
+    gtk_image_menu_item_set_accel_group(GTK_IMAGE_MENU_ITEM(keys), group);
+    gtk_image_menu_item_set_accel_group(GTK_IMAGE_MENU_ITEM(about), group);
     
+    g_signal_connect (G_OBJECT (quit), "enter-notify-event",
+                      G_CALLBACK (statusbar_hint), statusbar);
+    g_signal_connect (G_OBJECT (quit), "leave-notify-event",
+                      G_CALLBACK (statusbar_hint), statusbar);
+    g_signal_connect (G_OBJECT (keys), "enter-notify-event",
+                      G_CALLBACK (statusbar_hint), statusbar);
+    g_signal_connect (G_OBJECT (keys), "leave-notify-event",
+                      G_CALLBACK (statusbar_hint), statusbar);
+    g_signal_connect (G_OBJECT (about), "enter-notify-event",
+                      G_CALLBACK (statusbar_hint), statusbar);
+    g_signal_connect (G_OBJECT (about), "leave-notify-event",
+                      G_CALLBACK (statusbar_hint), statusbar);
+                    
+    g_object_set_data (G_OBJECT (quit), "menuhint",
+                       (gpointer) "Quit GSnakey, probably not what you're looking for.");
+    g_object_set_data (G_OBJECT (keys), "menuhint",
+                       (gpointer) "Show keyboard settings.");
+    g_object_set_data (G_OBJECT (about), "menuhint",
+                       (gpointer) "Show about message.");
+                     
+    gtk_widget_add_accelerator (quit, "activate", group, GDK_Q, 
+                                GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+    gtk_widget_add_accelerator (keys, "activate", group, GDK_K, 
+                                GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+
     scrolled_window = gtk_scrolled_window_new (NULL, NULL);
 
     gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
-                                  GTK_POLICY_AUTOMATIC,
-                                  GTK_POLICY_AUTOMATIC);
+                                    GTK_POLICY_AUTOMATIC,
+                                    GTK_POLICY_AUTOMATIC);
     gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled_window),
-                                       GTK_SHADOW_IN);
-    gtk_widget_set_size_request (scrolled_window, 150, HEIGHT);
+                                         GTK_SHADOW_IN);
+                                       
+    gtk_widget_set_size_request (scrolled_window, 138, HEIGHT);
     
     icon_view = gtk_icon_view_new_with_model (create_and_fill_model ());
     gtk_container_add (GTK_CONTAINER (scrolled_window), icon_view);
-
+        
     gtk_icon_view_set_pixbuf_column (GTK_ICON_VIEW (icon_view), COL_PIXBUF);
     gtk_icon_view_set_column_spacing (GTK_ICON_VIEW (icon_view), 0);
+    gtk_icon_view_set_row_spacing (GTK_ICON_VIEW (icon_view), 0);
+    gtk_icon_view_set_margin (GTK_ICON_VIEW (icon_view), 0);
+/*    gtk_icon_view_set_item_padding (GTK_ICON_VIEW (icon_view), 5);*/
     gtk_widget_set_can_focus (icon_view, FALSE);
+    
     table = gtk_table_new (1, 6, TRUE);
     gtk_table_attach_defaults (GTK_TABLE (table), statusbar, 0, 5, 0, 1);
     gtk_table_attach_defaults (GTK_TABLE (table), pointsbar, 5, 6, 0, 1);
     
+    vbox = gtk_vbox_new (FALSE, 0);
+    gtk_box_pack_start_defaults (GTK_BOX (vbox),  darea);
+    gtk_box_pack_start_defaults (GTK_BOX (vbox), table);
+
     hbox = gtk_hbox_new (FALSE, 0);
     gtk_box_pack_start_defaults (GTK_BOX (hbox), scrolled_window);
-    gtk_box_pack_start_defaults (GTK_BOX (hbox), darea);
+    gtk_box_pack_start_defaults (GTK_BOX (hbox), vbox);
     
-    vbox = gtk_vbox_new (FALSE, 0);
-    gtk_box_pack_start_defaults (GTK_BOX (vbox), menubar);
-    gtk_box_pack_start_defaults (GTK_BOX (vbox), hbox);
-    gtk_box_pack_start_defaults (GTK_BOX (vbox), table);
+    vbox2 = gtk_vbox_new (FALSE, 0);
+    gtk_box_pack_start_defaults (GTK_BOX (vbox2), menubar);
+    gtk_box_pack_start_defaults (GTK_BOX (vbox2), hbox);
     
-    gtk_container_add(GTK_CONTAINER (window), vbox);
+    gtk_container_add(GTK_CONTAINER (window), vbox2);
     
     g_signal_connect (G_OBJECT (quit), "activate",
                 G_CALLBACK (destroy), NULL);
+    g_signal_connect (G_OBJECT (about), "activate",
+                G_CALLBACK (show_about), NULL);
+    g_signal_connect (G_OBJECT (keys), "activate",
+                G_CALLBACK (show_keys), NULL);
     g_signal_connect (G_OBJECT (icon_view), "item-activated",
                 G_CALLBACK (change_map), NULL);
-/*    g_signal_connect (G_OBJECT (open), "activate",*/
-/*                G_CALLBACK (wopen), NULL);*/
                 
     g_signal_connect(darea, "expose-event",
                      G_CALLBACK(expose), darea);
