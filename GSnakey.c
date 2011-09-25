@@ -1,5 +1,5 @@
 /********************************************************************************
-* GSnakey v0.3 - GSnakey.c                                                      *
+* GSnakey v0.5 - GSnakey.c                                                      *
 *                                                                               *
 * Copyright (C) 2010 Anil Motilal Mahtani Mirchandani(anil.mmm@gmail.com)       *
 *                                                                               *
@@ -17,10 +17,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <sys/file.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <gdk/gdkkeysyms.h>
+#include "zlib.h"
 
 #define ROW     24
 #define COL     51
@@ -75,15 +78,123 @@ int keysig = -1;
 int timesig = -1;
 int init = 0;
 
+char mapname[13] = "maps/map.000";
 GtkWidget *darea, *vbox, *table, *window, *statusbar, *pointsbar;
 
 void init_game();
+
+enum
+{
+  COL_PIXBUF,
+  NUM_COLS
+};
+
+static void
+put_pixel (GdkPixbuf *pixbuf, int x, int y, guchar red, guchar green, guchar blue)
+{
+  int rowstride, n_channels;
+  guchar *pixels, *p;
+  
+  n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+  
+  rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+  pixels = gdk_pixbuf_get_pixels (pixbuf);
+  p = pixels + y * rowstride + x * n_channels;
+  
+  p[0] = red;
+  p[1] = green;
+  p[2] = blue;
+}
+
+void draw_square(GdkPixbuf *pixbuf, int x, int y, guchar red, guchar green, guchar blue)
+{
+	int i, j;
+	
+	for(i = x; i < x + 2; i++){
+		for(j = y; j < y + 2;  j++){
+			put_pixel(pixbuf, i, j, red, green, blue);
+		}
+	}
+}
+
+GtkTreeModel *create_and_fill_model (void)
+{
+    int i, j, k, count = 0;
+    char pixgrid[COL*ROW];
+    char name[13];
+	DIR *dh;
+	struct dirent *file;
+    GtkListStore *list_store;
+    GdkPixbuf *pic;
+    GtkTreeIter iter;
+
+    list_store = gtk_list_store_new (NUM_COLS, GDK_TYPE_PIXBUF);
+
+    dh = opendir("maps");
+
+    while((file = readdir(dh))) {
+        if(strncmp(file->d_name, "map.", 4) == 0) {
+            count++;
+        }
+    }
+
+    closedir(dh);
+    
+    for (k = 0; k < count; k++) {
+        pic = gdk_pixbuf_new(GDK_COLORSPACE_RGB,FALSE,8,COL*2,ROW*2);
+        sprintf(name, "maps/map.%03d", k);
+        load_map(name, &pixgrid);
+        
+        for (i = 0; i < ROW; i++) {
+            for (j = 0; j < COL; j++) {
+                if(pixgrid[i*COL+j] == WALL) {
+                    draw_square(pic, j*2, i*2, 255, 0, 0);
+                } else {
+                    draw_square(pic, j*2, i*2, 255, 255, 255);
+                }
+            }
+        }
+        gtk_list_store_append (list_store, &iter);
+        gtk_list_store_set (list_store, &iter, COL_PIXBUF, pic, -1);
+    }
+    
+    return GTK_TREE_MODEL (list_store);
+}
+
+
+/*static void wopen (GtkWidget *window, gpointer data)*/
+/*{*/
+/*    GtkWidget *win;*/
+/*    GtkWidget *icon_view;*/
+/*    GtkWidget *scrolled_window;*/
+/*    */
+/*    win = gtk_window_new(GTK_WINDOW_TOPLEVEL);*/
+/*    gtk_window_set_position(GTK_WINDOW(win), GTK_WIN_POS_CENTER);*/
+/*    */
+/*    scrolled_window = gtk_scrolled_window_new (NULL, NULL);*/
+/*    gtk_container_add (GTK_CONTAINER (win), scrolled_window);*/
+/*    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),*/
+/*                                  GTK_POLICY_AUTOMATIC,*/
+/*                                  GTK_POLICY_AUTOMATIC);*/
+/*    gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled_window),*/
+/*                                       GTK_SHADOW_IN);*/
+
+/*    icon_view = gtk_icon_view_new_with_model (create_and_fill_model ());*/
+/*    gtk_container_add (GTK_CONTAINER (scrolled_window), icon_view);*/
+
+/*    gtk_icon_view_set_pixbuf_column (GTK_ICON_VIEW (icon_view), COL_PIXBUF);*/
+/*    gtk_icon_view_set_selection_mode (GTK_ICON_VIEW (icon_view),*/
+/*                                    GTK_SELECTION_MULTIPLE);*/
+
+/*    g_signal_connect(win, "destroy",*/
+/*                     G_CALLBACK(gtk_widget_destroy), NULL);*/
+/*    gtk_widget_show_all (win);*/
+/*}*/
 
 static void destroy (GtkWidget *window, gpointer data)
 {
     gtk_main_quit ();
 }
-
 char inverse(char move)
 {
     switch(move) {
@@ -352,7 +463,7 @@ a_exit:
     return FALSE;
 }
 
-int load_map(const char *name)
+int load_map(const char *name, char *gridp)
 {
     char c;
     int fd, n, i;
@@ -364,7 +475,7 @@ int load_map(const char *name)
     }
     
     for (i = 0; i < ROW; i++) {
-        n = read(fd, &grid[i*COL], COL*sizeof(char));
+        n = read(fd, &gridp[i*COL], COL*sizeof(char));
         
         if (n != COL*sizeof(char)) {
             close(fd);
@@ -405,7 +516,7 @@ void init_game()
     memset(&grid, SPACE, sizeof(grid)/sizeof(char));
     memset(&dirbuf, STOP, sizeof(dirbuf)/sizeof(int));
     
-    if (load_map("map1") == -1) {
+    if (load_map(mapname, grid) == -1) {
         memset(&grid, SPACE, sizeof(grid)/sizeof(char));
     }
     
@@ -430,12 +541,32 @@ void init_game()
     if (timesig == -1) {
         timesig = g_timeout_add(tlapse, (GSourceFunc) advance, (gpointer) darea);
     }
+
+    gtk_widget_queue_draw(darea);
 }
+
+void change_map(GtkIconView *iconview, 
+                GtkTreePath *path, 
+                gpointer user_data)
+{
+    int *vec = gtk_tree_path_get_indices (path);
+    
+    if (vec != NULL) {
+        sprintf(mapname, "maps/map.%03d", vec[0]);
+        init_game();
+    }
+}
+
 
 int main (int argc, char *argv[])
 {
     int id;
-    
+    GtkAccelGroup *group;
+    GtkWidget *menubar;
+    GtkWidget *file, *help;
+    GtkWidget *keys, *about, *import, *open, *quit;
+    GtkWidget *filemenu, *helpmenu;
+      
     gtk_init(&argc, &argv);
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -447,23 +578,77 @@ int main (int argc, char *argv[])
 
     statusbar = gtk_statusbar_new ();
     pointsbar = gtk_statusbar_new ();
+
+    group = gtk_accel_group_new ();
+    menubar = gtk_menu_bar_new ();
+    file = gtk_menu_item_new_with_label ("File");
+    help = gtk_menu_item_new_with_label ("Help");
+    filemenu = gtk_menu_new ();
+    helpmenu = gtk_menu_new ();
+
+    gtk_menu_item_set_submenu (GTK_MENU_ITEM (file), filemenu); 
+    gtk_menu_item_set_submenu (GTK_MENU_ITEM (help), helpmenu);
+
+    gtk_menu_shell_append (GTK_MENU_SHELL (menubar), file); 
+    gtk_menu_shell_append (GTK_MENU_SHELL (menubar), help);
+
+    quit = gtk_image_menu_item_new_from_stock (GTK_STOCK_QUIT, group);
+    gtk_menu_shell_append (GTK_MENU_SHELL (filemenu), quit);
+
+    keys = gtk_image_menu_item_new_from_stock (GTK_STOCK_HELP, group);
+    about = gtk_image_menu_item_new_from_stock (GTK_STOCK_ABOUT, group);
+    gtk_menu_shell_append (GTK_MENU_SHELL (helpmenu), keys);
+    gtk_menu_shell_append (GTK_MENU_SHELL (helpmenu), about);
     
+    GtkWidget *hbox;
+    GtkWidget *icon_view;
+    GtkWidget *scrolled_window;
+    
+    scrolled_window = gtk_scrolled_window_new (NULL, NULL);
+
+    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
+                                  GTK_POLICY_AUTOMATIC,
+                                  GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled_window),
+                                       GTK_SHADOW_IN);
+    gtk_widget_set_size_request (scrolled_window, 150, HEIGHT);
+    
+    icon_view = gtk_icon_view_new_with_model (create_and_fill_model ());
+    gtk_container_add (GTK_CONTAINER (scrolled_window), icon_view);
+
+    gtk_icon_view_set_pixbuf_column (GTK_ICON_VIEW (icon_view), COL_PIXBUF);
+    gtk_icon_view_set_column_spacing (GTK_ICON_VIEW (icon_view), 0);
+    gtk_widget_set_can_focus (icon_view, FALSE);
     table = gtk_table_new (1, 6, TRUE);
     gtk_table_attach_defaults (GTK_TABLE (table), statusbar, 0, 5, 0, 1);
     gtk_table_attach_defaults (GTK_TABLE (table), pointsbar, 5, 6, 0, 1);
     
+    hbox = gtk_hbox_new (FALSE, 0);
+    gtk_box_pack_start_defaults (GTK_BOX (hbox), scrolled_window);
+    gtk_box_pack_start_defaults (GTK_BOX (hbox), darea);
+    
     vbox = gtk_vbox_new (FALSE, 0);
-    gtk_box_pack_start_defaults (GTK_BOX (vbox), darea);
+    gtk_box_pack_start_defaults (GTK_BOX (vbox), menubar);
+    gtk_box_pack_start_defaults (GTK_BOX (vbox), hbox);
     gtk_box_pack_start_defaults (GTK_BOX (vbox), table);
     
     gtk_container_add(GTK_CONTAINER (window), vbox);
-
+    
+    g_signal_connect (G_OBJECT (quit), "activate",
+                G_CALLBACK (destroy), NULL);
+    g_signal_connect (G_OBJECT (icon_view), "item-activated",
+                G_CALLBACK (change_map), NULL);
+/*    g_signal_connect (G_OBJECT (open), "activate",*/
+/*                G_CALLBACK (wopen), NULL);*/
+                
     g_signal_connect(darea, "expose-event",
                      G_CALLBACK(expose), darea);
     g_signal_connect(window, "destroy",
                      G_CALLBACK(destroy), NULL);
     init_game();
-                
+
+    gtk_window_add_accel_group (GTK_WINDOW (window), group);
+    
     gtk_widget_show_all(window);
     
     gtk_main();
