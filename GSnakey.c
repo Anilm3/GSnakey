@@ -93,8 +93,8 @@ int sr = IN_ROW;
 int sc = IN_COL;
 int remain = 0;
 
-int tlapse = 400;
-int step = 10;
+int tlapse = 200;
+int step = 5;
 
 char grid[ROW*COL];
 
@@ -395,12 +395,12 @@ void eat_food()
     
     points += 10;
     
-    tlapse = ((tlapse-step) < 10 ? 10 : tlapse-step);
+    tlapse = ((tlapse-step) <= step ? step : tlapse-step);
     remain = 2;
     
-    sprintf(string, "Points : %d", points);
+    sprintf(string, "Score : %d", points);
     
-    id = gtk_statusbar_get_context_id (GTK_STATUSBAR(pointsbar), "Points");
+    id = gtk_statusbar_get_context_id (GTK_STATUSBAR(pointsbar), "Score");
     gtk_statusbar_pop (GTK_STATUSBAR(pointsbar), id);
     gtk_statusbar_push (GTK_STATUSBAR(pointsbar), id, string);
     
@@ -414,9 +414,9 @@ void game_over()
     
     dirbuf[ibuf] = STOP;
     
-    id = gtk_statusbar_get_context_id (GTK_STATUSBAR(pointsbar), "Points");
+    id = gtk_statusbar_get_context_id (GTK_STATUSBAR(pointsbar), "Score");
     
-    sprintf(string, "Points : %d", points);
+    sprintf(string, "Score : %d", points);
     
     gtk_statusbar_pop (GTK_STATUSBAR(pointsbar), id);
     gtk_statusbar_push (GTK_STATUSBAR(pointsbar), id, string);
@@ -529,8 +529,8 @@ void init_game()
     sr = IN_ROW;
     sc = IN_COL;
     remain = 0;
-    tlapse = 400;
-    step = 10;
+    tlapse = 200;
+    step = 5;
     ibuf = 0;
     nbuf = 0;
     points = 0;
@@ -556,9 +556,9 @@ void init_game()
                                   G_CALLBACK(key_press), NULL);
     }
     
-    id = gtk_statusbar_get_context_id (GTK_STATUSBAR(pointsbar), "Points");
+    id = gtk_statusbar_get_context_id (GTK_STATUSBAR(pointsbar), "Score");
     gtk_statusbar_pop (GTK_STATUSBAR(pointsbar), id);
-    gtk_statusbar_push (GTK_STATUSBAR(pointsbar), id, "Points : 0");
+    gtk_statusbar_push (GTK_STATUSBAR(pointsbar), id, "Score : 0");
 
     id = gtk_statusbar_get_context_id (GTK_STATUSBAR(statusbar), "Info");
     gtk_statusbar_pop (GTK_STATUSBAR(statusbar), id);
