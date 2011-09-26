@@ -1,0 +1,34 @@
+GSnakey v0.7
+
+GTK Snake game based on Google Old Snakey!
+
+If you enjoy playing Old Snakey! on GMail you will probably enjoy GSnakey. It's
+very similar but with much more maps. Maps are also very easy to create.
+
+Requires GTK+2.0 and Cairo. 
+
+Usage:
+        make
+        ./GSnakey
+        
+Controls:
+        Up    : Up Arrow
+        Down  : Down Arrow
+        Right : Right Arrow
+        Left  : Left Arrow
+        Pause : Space
+        Reset : Esc
+        
+This version is not final and may have several bugs. Also the code actually sucks
+and should not be considered as an example. 
+
+TODO:
+        Scores ranking
+        Importing maps
+        Compressed maps
+        Game modes
+        Comments on the code
+        Code Modularity
+
+Enjoy!
+

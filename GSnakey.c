@@ -76,13 +76,13 @@ char *applogo = "................................"
                 "..............***######**......."
                 "......**.........***#####*......"
                 ".....*##*...........**####*....."
-                ".....*###**...........*###*....."
+                ".....*###**...........*####*...."
                 ".....*#####*..........*####*...."
                 "......**####*.........*####*...."
                 "........*####********#####*....."
                 ".........**############***......"
-                "...........*##########*........."
-                "............**********.........."
+                "...........**########**........."
+                ".............********..........."
                 "................................"
                 "................................"
                 "................................"
@@ -117,36 +117,36 @@ void init_game();
 
 enum
 {
-  COL_PIXBUF,
-  NUM_COLS
+      COL_PIXBUF,
+      NUM_COLS
 };
 
 static void
 put_pixel (GdkPixbuf *pixbuf, int x, int y, guchar red, guchar green, guchar blue)
 {
-  int rowstride, n_channels;
-  guchar *pixels, *p;
-  
-  n_channels = gdk_pixbuf_get_n_channels (pixbuf);
-  
-  rowstride = gdk_pixbuf_get_rowstride (pixbuf);
-  pixels = gdk_pixbuf_get_pixels (pixbuf);
-  p = pixels + y * rowstride + x * n_channels;
-  
-  p[0] = red;
-  p[1] = green;
-  p[2] = blue;
+      int rowstride, n_channels;
+      guchar *pixels, *p;
+      
+      n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+      
+      rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+      pixels = gdk_pixbuf_get_pixels (pixbuf);
+      p = pixels + y * rowstride + x * n_channels;
+      
+      p[0] = red;
+      p[1] = green;
+      p[2] = blue;
 }
 
 void draw_square(GdkPixbuf *pixbuf, int x, int y, guchar red, guchar green, guchar blue)
 {
-	int i, j;
-	
-	for(i = x; i < x + 2; i++){
-		for(j = y; j < y + 2;  j++){
-			put_pixel(pixbuf, i, j, red, green, blue);
-		}
-	}
+    int i, j;
+
+    for(i = x; i < x + 2; i++){
+        for(j = y; j < y + 2;  j++){
+            put_pixel(pixbuf, i, j, red, green, blue);
+        }
+    }
 }
 
 GtkTreeModel *create_and_fill_model (void)
@@ -154,8 +154,8 @@ GtkTreeModel *create_and_fill_model (void)
     int i, j, k, count = 0;
     char pixgrid[COL*ROW];
     char name[13];
-	DIR *dh;
-	struct dirent *file;
+    DIR *dh;
+    struct dirent *file;
     GtkListStore *list_store;
     GdkPixbuf *pic;
     GtkTreeIter iter;
