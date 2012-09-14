@@ -1,6 +1,6 @@
 EXES = $(basename $(wildcard *.c))
 CC = cc
-CFLAGS = -O3 -march=native  `pkg-config --cflags --libs gtk+-2.0`
+CFLAGS = -O3 -march=native  `pkg-config --cflags --libs gtk+-3.0`
 
 all: 
 	$(MAKE) $(EXES)
